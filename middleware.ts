@@ -1,48 +1,29 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { authMiddleware, redirectToSignIn } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-// Define the protected routes
-const isProtectedRoute = createRouteMatcher([
-  "/",
-]);
+export default authMiddleware({
+  publicRoutes: ["/"],
+  afterAuth(auth, req) {
+    if (auth.userId && auth.isPublicRoute) {
+      let path = "/select-org";
 
-export default clerkMiddleware((auth, req) => {
-  const { userId, orgId, redirectToSignIn } = auth();
+      if (auth.orgId) {
+        path = `/organization/${auth.orgId}`;
+      }
 
-  if (!userId && req.nextUrl.pathname === "/") {
-    return NextResponse.next();
-  }
-
-  // Redirect to sign-in if user is not auth and trying to access a protected route
-  // In this case, all the routes are protected
-  if (!userId && isProtectedRoute(req)) {
-    return redirectToSignIn({ returnBackUrl: req.url });
-  }
-
-  // Redirect to auth user's organization page or selection page
-  if (userId && isProtectedRoute(req)) {
-    let path = "/select-org";
-
-    if (orgId) {
-      path = `/organization/${orgId}`;
+      const orgSelection = new URL(path, req.url);
+      return NextResponse.redirect(orgSelection);
     }
 
-    const orgSelection = new URL(path, req.url);
-    return NextResponse.redirect(orgSelection);
-  }
+    if (!auth.userId && !auth.isPublicRoute) {
+      return redirectToSignIn({ returnBackUrl: req.url });
+    }
 
-  // Prevent unauth user's access
-  if (!userId && !isProtectedRoute(req)) {
-    return NextResponse.next();
+    if (auth.userId && !auth.orgId && req.nextUrl.pathname !== "/select-org") {
+      const orgSelection = new URL("/select-org", req.url);
+      return NextResponse.redirect(orgSelection);
+    } 
   }
-
-  // Redirect auth users without an organization ID to the organization selection page
-  if (userId && !orgId && req.nextUrl.pathname !== "/select-org") {
-    const orgSelection = new URL("/select-org", req.url);
-    return NextResponse.redirect(orgSelection);
-  }
-
-  // return NextResponse.next();
 });
 
 export const config = {
