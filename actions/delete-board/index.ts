@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { ACTION, ENTITY_TYPE } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { decreaseAvailableCount } from "@/lib/org-limit";
 import { createAuditLog } from "@/lib/create-audit-log";
 import { createSafeAction } from "@/lib/create-safe-action";
 
@@ -31,6 +32,8 @@ const handler = async (data: InputType): Promise<ReturnType> => {
         orgId,
       },
     });
+
+    await decreaseAvailableCount();
 
     await createAuditLog({
       entityTitle: board.title,
